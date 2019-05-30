@@ -5,135 +5,153 @@ let game
 router.post('/', (req, res, next) => {
 
   if (!game) {
-    console.log('New Game')
-    game = {
-      turn_queue: [],
-      log_new: 0,
-      log: [],
-      characters : {
-        slime1: {
-          id: 'slime1',
-          is_enemy: true,
-          zone: 'front',
-          slot: 2,
-          ATB: 5000,
-          SPD: 99
-        },
-        slime2: {
-          id: 'slime2',
-          is_enemy: true,
-          zone: 'back',
-          slot: 1,
-          ATB: 5000,
-          SPD: 122
-        },
-        slime3: {
-          id: 'slime3',
-          is_enemy: true,
-          zone: 'back',
-          slot: 2,
-          ATB: 5000,
-          SPD: 177
-        },
-        shaya: {
-          id: 'shaya',
-          is_enemy: false,
-          zone: 'front',
-          slot: 2,
-          ATB: 5000,
-          SPD: 153
-        },
-        miki: {
-          id: 'miki',
-          is_enemy: false,
-          zone: 'front',
-          slot: 2,
-          ATB: 5000,
-          SPD: 152
-        }
-      }
-    }
+    game = new Game()
   }
-
-  // Player Turns
   else {
-    console.log('Player Turn')
-    // Reset log_new
-    game.log_new = 0
-  
-    let id = game.turn_queue[0].id
-
-    // Player Action
-    game.characters[id].ATB = 10000
-    game.characters[id].ATB -= 3000
-    let action = {
-      source_id: id,
-      action: 'Did Nothing'
-    }
-    game.log.push(action)
-    game.log_new++
-    game.turn_queue.shift()
+    game.renewLog()
+    game.inputAction(req.body)
   }
-
-
-  // Ticker Loop waits for player to reach the front of the game queue
-  console.log('Start Turn Loop')
-  while (true) {
-
-    if (!game.turn_queue.length) {
-
-      console.log('Tick Forwards')
-      for (let id in game.characters) {
-        let char = game.characters[id]
-        char.ATB += char.SPD
-      }
-    
-      console.log('Check ATB and Load Queue')
-      for (let id in game.characters) {
-        let char = game.characters[id]
-        if (char.ATB >= 10000) {
-          game.turn_queue.push(char)
-        }
-      }
-    }
-
-    if (game.turn_queue.length) {
-
-      console.log('Sort Queue by Priority')
-       game.turn_queue.sort((a,b) => {
-        return b.ATB - a.ATB || b.SPD - a.SPD
-      })
-    
-      console.log('Process Turn Queue while Enemy Turn')
-      while (game.turn_queue.length && game.turn_queue[0].is_enemy) {
-        let id = game.turn_queue[0].id
-        console.log('Current Turn: ' + id)
-        console.log(game.characters[id])
-        game.characters[id].ATB = 10000
-        game.characters[id].ATB -= 3000
-        let action = {
-          source_id: id,
-          action: 'Did Nothing'
-        }
-        game.log.push(action)
-        game.log_new++
-        game.turn_queue.shift()
-      }
-      console.log('All Enemies Processed')
-
-      if (game.turn_queue.length) {
-        console.log('Send Game back if Player Turn')
-  
-        let data = JSON.parse(JSON.stringify(game))
-        data.turn_queue = data.turn_queue.map(char => char.id)
-        data.log = data.log.slice(-data.log_new)
-  
-        return res.send(data)
-      }
-
-    }
-
-  }
+  let response = game.next()
+  res.send(response)
 })
+
+function Game() {
+
+  //
+  // Action Log
+  let log_new = 0
+  let log = []
+  this.renewLog = () => {
+    log_new = 0
+  }
+
+  //
+  // Battleground
+  let battleground = [
+
+          {}, {},       // Player Frontline
+        {}, {}, {},     // Player Backline
+    {}, {}, {}, {}, {}, // Player Reserve
+
+          {}, {},       // Enemy Frontline
+        {}, {}, {},     // Enemy Backline
+    {}, {}, {}, {}, {}, // Enemy Reserve
+
+  ]
+
+  // Temporary
+  battleground[0] = {
+    id: '001_SHAYA',
+    name: 'Shaya',
+    ATB: 5000,
+    SPD: 99
+  }
+  battleground[10] = {
+    id: '001_SLIME',
+    name: 'Slime',
+    ATB: 5000,
+    SPD: 127
+  }
+
+  // Target Selection
+  let select = type => {
+    const key = type.toUpperCase().split(' ').join('_')
+
+    const SELECT = {
+      ALL_PLAYERS:        () => battleground.slice(0,10),
+      ACTIVE_PLAYERS:     () => battleground.slice(0,5),
+      FRONT_ROW_PLAYERS:  () => battleground.slice(0,2),
+      BACK_ROW_PLAYERS:   () => battleground.slice(2,5),
+      RESERVE_PLAYERS:    () => battleground.slice(5,10),
+      ALL_ENEMIES:        () => battleground.slice(10,20),
+      ACTIVE_ENEMIES:     () => battleground.slice(10,15),
+      FRONT_ROW_ENEMIES:  () => battleground.slice(10,12),
+      BACK_ROW_ENEMIES:   () => battleground.slice(12,15),
+      RESERVE_ENEMIES:    () => battleground.slice(15,20),
+      ALL_CHARACTERS:     () => battleground,
+      ACTIVE_CHARACTERS:  () => SELECT.ACTIVE_PLAYERS().concat(SELECT.ACTIVE_ENEMIES()),
+    }
+    
+    let selection = key in SELECT ? SELECT[key]() : battleground.find(char => char.id == key)
+    return selection.length ? selection.filter(char => char.id != null) : selection
+  }
+
+
+  //
+  // Turn Queue
+  let turn_queue = []
+  let mid_turn = false
+
+  let advance_timers = () => {
+    for(let char of select('active characters')) {
+      char.ATB += char.SPD
+      if (char.ATB >= 10000) {
+        turn_queue.push(char)
+      }
+    }
+    turn_queue.sort((a,b) => {
+      return b.ATB - a.ATB || b.SPD - a.SPD
+    })
+  }
+
+  //
+  // Game Actions
+  let perform_action = (data) => {
+    let key  = data.action.toUpperCase()
+    let char = select(data.source_id)
+
+    const ACTIONS = {
+      START(action) {
+        mid_turn = true
+        action.message = `${char.name}'s turn!`
+        return action
+      },
+      SKIP(action) {
+        char.ATB = 7000
+        mid_turn = false
+        turn_queue.shift()
+        action.message = `${char.name} did nothing...`
+        return action
+      },
+    }
+    let result = ACTIONS[key](data)
+    log.push(result)
+    log_new++
+  }
+
+  let advance_turns = () => {
+    while(turn_queue.length && select('active enemies').includes(turn_queue[0])) {
+      let source_id = turn_queue[0].id
+      perform_action({ source_id, action: 'START' })
+      perform_action({ source_id, action: 'SKIP' })
+    }
+    if (turn_queue.length && !mid_turn) {
+      let source_id = turn_queue[0].id
+      perform_action({ source_id, action: 'START' })
+    }
+  }
+
+  this.inputAction = (data) => {
+    data.source_id = turn_queue[0].id
+    perform_action(data)
+  }
+
+  this.toJSON = () => {
+    return {
+      log: log.slice(-log_new),
+      battleground
+    }
+  }
+
+  this.next = () => {
+    while(true) {
+      if (!turn_queue.length) advance_timers()
+      if (turn_queue.length)  advance_turns()
+      if (turn_queue.length)  return this.toJSON()
+    }
+  }
+
+  return this
+}
 
 module.exports = router
