@@ -1,6 +1,9 @@
 var router = require('express').Router()
+let { ENEMIES, CHARACTERS } = require('../DEX')
 
 let game
+
+let clone = obj => JSON.parse(JSON.stringify(obj))
 
 router.post('/', (req, res, next) => {
 
@@ -24,7 +27,6 @@ function Game() {
   this.renewLog = () => {
     log_new = 0
   }
-
   //
   // Battleground
   let battleground = [
@@ -44,13 +46,9 @@ function Game() {
     id: '001_SHAYA',
     name: 'Shaya',
     ATB: 5000,
-    SPD: 99
-  }
-  battleground[10] = {
-    id: '001_SLIME',
-    name: 'Slime',
-    ATB: 5000,
-    SPD: 127
+    SPD: 99,
+    HP: 9999,
+    ATK: 12
   }
 
   // Target Selection
@@ -72,10 +70,15 @@ function Game() {
       ACTIVE_CHARACTERS:  () => SELECT.ACTIVE_PLAYERS().concat(SELECT.ACTIVE_ENEMIES()),
     }
     
-    let selection = key in SELECT ? SELECT[key]() : battleground.find(char => char.id == key)
+    let selection = 
+      key in SELECT ? SELECT[key]() : 
+      key in ENEMIES ? clone(ENEMIES[key]) :
+      battleground.find(char => char.id == key)
+
     return selection.length ? selection.filter(char => char.id != null) : selection
   }
 
+  let position_of = id => battleground.indexOf(select(id))
 
   //
   // Turn Queue
@@ -95,10 +98,16 @@ function Game() {
   }
 
   //
+  // Enemy Stuff
+  let enemy_id = 0
+  
+  //
   // Game Actions
   let perform_action = (data) => {
     let key  = data.action.toUpperCase()
     let char = select(data.source_id)
+
+    let next = []
 
     const ACTIONS = {
       START(action) {
@@ -113,16 +122,71 @@ function Game() {
         action.message = `${char.name} did nothing...`
         return action
       },
+      ATTACK(action) {
+        let target = battleground[action.target_index]
+        if (target.id) {
+          action.message = `${char.name} attacked ${target.name}!`
+          char.ATB = 6000
+          mid_turn = false
+          turn_queue.shift()
+          next.push({
+            action: 'DAMAGE',
+            source_id: target.id,
+            damage: char.ATK
+          })
+        }
+        else {
+          action.message = `There's nothing there to attack...`
+        }
+        return action
+      },
+      DAMAGE(action) {
+        char.HP -= action.damage
+        if (char.HP <= 0) {
+          next.push({
+            action: 'DEATH',
+            source_id: char.id
+          })
+        }
+        action.message = `${char.name} took ${action.damage} damage.`
+        return action
+      },
+      DEATH(action) {
+        action.message = `${char.name} died :(`
+        battleground[position_of(action.source_id)] = {}
+        return action
+      },
+      SPAWN(action) {
+        enemy_id++
+        char.ATB = 5000
+        char.id  = action.source_id + ':' + enemy_id
+        battleground[action.target_index] = char
+        action.message = `${char.name} appeared!`
+        return action
+      }
     }
+
     let result = ACTIONS[key](data)
     log.push(result)
     log_new++
+
+    for(let action of next) {
+      perform_action(action)
+    }
+
   }
+  
+  perform_action({
+    source_id: 'SLIME',
+    action: 'SPAWN',
+    target_index: 10 
+  })
 
   let advance_turns = () => {
     while(turn_queue.length && select('active enemies').includes(turn_queue[0])) {
       let source_id = turn_queue[0].id
       perform_action({ source_id, action: 'START' })
+      // Later we will generate an action based on the enemy script here
       perform_action({ source_id, action: 'SKIP' })
     }
     if (turn_queue.length && !mid_turn) {
@@ -138,6 +202,7 @@ function Game() {
 
   this.toJSON = () => {
     return {
+      current_player: turn_queue[0].name,
       log: log.slice(-log_new),
       battleground
     }
