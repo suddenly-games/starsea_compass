@@ -1,9 +1,12 @@
 var router = require('express').Router()
-let { ENEMIES, CHARACTERS } = require('../DEX')
+let { ENEMIES, CARDS, CHARACTERS } = require('../DEX')
 
 let game
 
 let clone = obj => JSON.parse(JSON.stringify(obj))
+function getRandomInt(max) {
+  return Math.floor(Math.random() * Math.floor(max));
+}
 
 router.post('/', (req, res, next) => {
 
@@ -41,14 +44,12 @@ function Game() {
 
   ]
 
-  // Temporary
-  battleground[0] = {
-    id: '001_SHAYA',
-    name: 'Shaya',
-    ATB: 5000,
-    SPD: 99,
-    HP: 9999,
-    ATK: 12
+  
+  
+  let deck = {
+    hand: {
+      
+    },
   }
 
   // Target Selection
@@ -71,13 +72,17 @@ function Game() {
     }
     
     let selection = 
+      key == 'PLAYER' ? { id: 'PLAYER', name: 'You' } :
       key in SELECT ? SELECT[key]() : 
       key in ENEMIES ? clone(ENEMIES[key]) :
+      key in CARDS ? CARDS[key] :
+      key in CHARACTERS ? CHARACTERS[key] : 
       battleground.find(char => char.id == key)
 
     return selection.length ? selection.filter(char => char.id != null) : selection
   }
 
+  
   let position_of = id => battleground.indexOf(select(id))
 
   //
@@ -100,7 +105,13 @@ function Game() {
   //
   // Enemy Stuff
   let enemy_id = 0
-  
+
+  // Floor stuff & dungeon 
+
+  let floor = 0
+  let dungeon_name = "World Tree Entrance"
+
+
   //
   // Game Actions
   let perform_action = (data) => {
@@ -122,21 +133,20 @@ function Game() {
         action.message = `${char.name} did nothing...`
         return action
       },
-      ATTACK(action) {
+      ACTIVATE(action) {
         let target = battleground[action.target_index]
+        let card = select(action.card)
         if (target.id) {
-          action.message = `${char.name} attacked ${target.name}!`
-          char.ATB = 6000
-          mid_turn = false
-          turn_queue.shift()
-          next.push({
-            action: 'DAMAGE',
-            source_id: target.id,
-            damage: char.ATK
-          })
+          action.message = `${char.name} used ${card.name} on ${target.name}!`
+          char.ATB = 10000 - card.atb_cost
+          if (char.ATB < 10000) {
+            mid_turn = false
+            turn_queue.shift()
+          }
+          next.push(card.activate(char, target))
         }
         else {
-          action.message = `There's nothing there to attack...`
+          action.message = `There's nothing there...`
         }
         return action
       },
@@ -154,14 +164,52 @@ function Game() {
       DEATH(action) {
         action.message = `${char.name} died :(`
         battleground[position_of(action.source_id)] = {}
+        if (!select('active enemies').length) {
+          next.push({
+            source_id: 'PLAYER',
+            action: 'CLEAR'
+          })
+        }
         return action
       },
       SPAWN(action) {
         enemy_id++
         char.ATB = 5000
+        char.level = action.level
         char.id  = action.source_id + ':' + enemy_id
+        char.SPD = char.SPD * (100 + action.level)
+        char.HP = char.HP * (10 + action.level)
+        char.ATK = char.ATK * (5 + action.level)
+        char.MAG = char.MAG * (5 + action.level)
+        char.RES = char.RES * (5 + action.level)
+        char.DEF = char.DEF * (5 + action.level)
         battleground[action.target_index] = char
         action.message = `${char.name} appeared!`
+        return action
+      },
+      CLEAR(action){
+        action.message = `${char.name} cleared floor ${floor}!`
+        next.push({
+          source_id: 'PLAYER',
+          action: 'ADVANCE'
+        })
+        return action
+      },
+      ADVANCE(action) {
+        floor++
+        action.message = `Entering Floor ${floor}...`
+
+        let spawn_count = Math.min(floor, 1 + getRandomInt(5) )
+        
+        for(let i = 0; i < spawn_count; ++i) {
+          next.push({
+            source_id: 'SLIME',
+            action: 'SPAWN',
+            level: floor + getRandomInt(6), 
+            target_index: 10 + i
+          })
+        }
+
         return action
       }
     }
@@ -177,10 +225,22 @@ function Game() {
   }
   
   perform_action({
-    source_id: 'SLIME',
-    action: 'SPAWN',
-    target_index: 10 
+    source_id: 'PLAYER',
+    action: 'ADVANCE' 
   })
+
+  let load_character = (id, level) => {
+    let char = select(id)
+    char.SPD = char.SPD * (100 + level)
+    char.HP = char.HP * (10 + level)
+    char.ATK = char.ATK * (5 + level)
+    char.MAG = char.MAG * (5 + level)
+    char.RES = char.RES * (5 + level)
+    char.DEF = char.DEF * (5 + level)
+    return char
+  }
+
+  battleground[0] = load_character('SHAYA', floor)
 
   let advance_turns = () => {
     while(turn_queue.length && select('active enemies').includes(turn_queue[0])) {
@@ -202,6 +262,7 @@ function Game() {
 
   this.toJSON = () => {
     return {
+      floor_info: `${dungeon_name}: Floor ${floor}`,
       current_player: turn_queue[0].name,
       log: log.slice(-log_new),
       battleground
