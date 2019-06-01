@@ -15,10 +15,11 @@ router.post('/', (req, res, next) => {
   }
   else {
     game.renewLog()
-    game.inputAction(req.body)
+    let err = game.inputAction(req.body)
+    if (err) return res.send(err)
   }
   let response = game.next()
-  res.send(response)
+  return res.send(response)
 })
 
 function Game() {
@@ -73,13 +74,14 @@ function Game() {
     
     let selection = 
       key == 'PLAYER' ? { id: 'PLAYER', name: 'You' } :
+      key == 'SYSTEM' ? { id: 'SYSTEM', name: 'System' } :
       key in SELECT ? SELECT[key]() : 
-      key in ENEMIES ? clone(ENEMIES[key]) :
+      key in ENEMIES ? ENEMIES[key] :
       key in CARDS ? CARDS[key] :
       key in CHARACTERS ? CHARACTERS[key] : 
       battleground.find(char => char.id == key)
 
-    return selection.length ? selection.filter(char => char.id != null) : selection
+    return selection.length ? selection.filter(char => char.id != null)||[] : selection
   }
 
   
@@ -106,11 +108,14 @@ function Game() {
   // Enemy Stuff
   let enemy_id = 0
 
+  //
   // Floor stuff & dungeon 
-
   let floor = 0
   let dungeon_name = "World Tree Entrance"
 
+  //
+  // Menu Stuff
+  let menu = []
 
   //
   // Game Actions
@@ -119,16 +124,18 @@ function Game() {
     let char = select(data.source_id)
 
     let next = []
+    let waiting_for_player = false
 
     const ACTIONS = {
       START(action) {
-        mid_turn = true
+        if (select('active players').includes(char)) {
+          waiting_for_player = true
+        }
         action.message = `${char.name}'s turn!`
         return action
       },
       SKIP(action) {
         char.ATB = 7000
-        mid_turn = false
         turn_queue.shift()
         action.message = `${char.name} did nothing...`
         return action
@@ -140,12 +147,14 @@ function Game() {
           action.message = `${char.name} used ${card.name} on ${target.name}!`
           char.ATB = 10000 - card.atb_cost
           if (char.ATB < 10000) {
-            mid_turn = false
             turn_queue.shift()
           }
           next.push(card.activate(char, target))
         }
         else {
+          if (select('active players').includes(char)) {
+            waiting_for_player = true
+          }
           action.message = `There's nothing there...`
         }
         return action
@@ -170,21 +179,32 @@ function Game() {
             action: 'CLEAR'
           })
         }
+        if (!select('active players').length) {
+          next.push({
+            action: 'MENU',
+            source_id: 'SYSTEM',
+            message: 'GAME OVER!',
+            options: ['Try Again']
+          })
+        }
         return action
       },
       SPAWN(action) {
         enemy_id++
-        char.ATB = 5000
-        char.level = action.level
-        char.id  = action.source_id + ':' + enemy_id
-        char.SPD = char.SPD * (100 + action.level)
-        char.HP = char.HP * (10 + action.level)
-        char.ATK = char.ATK * (5 + action.level)
-        char.MAG = char.MAG * (5 + action.level)
-        char.RES = char.RES * (5 + action.level)
-        char.DEF = char.DEF * (5 + action.level)
-        battleground[action.target_index] = char
-        action.message = `${char.name} appeared!`
+        let instance = {}
+        instance.ATB = 5000
+        instance.level = action.level
+        instance.id  = action.source_id + ':' + enemy_id
+        instance.SPD = char.SPD * (100 + action.level)
+        instance.HP = char.HP * (10 + action.level)
+        instance.ATK = char.ATK * (5 + action.level)
+        instance.MAG = char.MAG * (5 + action.level)
+        instance.RES = char.RES * (5 + action.level)
+        instance.DEF = char.DEF * (5 + action.level)
+        instance.actions = char.AI(instance, battleground)
+        instance.name = char.name
+        battleground[action.target_index] = instance
+        action.message = `${instance.name} appeared!`
         return action
       },
       CLEAR(action){
@@ -211,7 +231,30 @@ function Game() {
         }
 
         return action
-      }
+      },
+      DIALOGUE(action) {
+        return action
+      },
+      MENU(action) {
+        action.source_id = 'SYSTEM'
+        waiting_for_player = true
+        menu = action.options
+        return action
+      },
+      CHOOSE(action) {
+        char = select('player')
+        action.source_id = char.id
+        if (menu.includes(action.option)) {
+          action.message = `${char.name} chose ${action.option}.`
+          menu = []
+        }
+        else {
+          action.message = `Invalid choice!`
+          action.options = menu
+          waiting_for_player = true
+        }
+        return action
+      },
     }
 
     let result = ACTIONS[key](data)
@@ -222,11 +265,19 @@ function Game() {
       perform_action(action)
     }
 
+    return waiting_for_player
+
   }
   
   perform_action({
-    source_id: 'PLAYER',
-    action: 'ADVANCE' 
+    action: 'DIALOGUE',
+    source_id: 'SYSTEM',
+    message: 'Hello World!'
+  })
+  
+  perform_action({
+    action: 'ADVANCE',
+    source_id: 'PLAYER'
   })
 
   let load_character = (id, level) => {
@@ -243,37 +294,52 @@ function Game() {
   battleground[0] = load_character('SHAYA', floor)
 
   let advance_turns = () => {
-    while(turn_queue.length && select('active enemies').includes(turn_queue[0])) {
-      let source_id = turn_queue[0].id
-      perform_action({ source_id, action: 'START' })
-      // Later we will generate an action based on the enemy script here
-      perform_action({ source_id, action: 'SKIP' })
+    let waiting_for_player = false
+    while(turn_queue.length && !waiting_for_player) {
+      let char = turn_queue[0]
+      if (char.actions) {
+        let action = char.actions.next().value
+        waiting_for_player = perform_action(action)
+      }
+      else {
+        waiting_for_player = perform_action({ source_id: char.id, action: 'START' })
+      }
     }
-    if (turn_queue.length && !mid_turn) {
-      let source_id = turn_queue[0].id
-      perform_action({ source_id, action: 'START' })
-    }
+    return waiting_for_player
   }
 
   this.inputAction = (data) => {
     data.source_id = turn_queue[0].id
-    perform_action(data)
+    if (menu.length && data.action != 'CHOOSE') {
+      perform_action({
+        action: 'MENU',
+        source_id: 'SYSTEM',
+        message: 'Please CHOOSE an option!',
+        options: menu
+      })
+      return this.toJSON()
+    }
+    let try_again = perform_action(data)
+    if (try_again) return this.toJSON()
+    return null
   }
 
   this.toJSON = () => {
-    return {
-      floor_info: `${dungeon_name}: Floor ${floor}`,
-      current_player: turn_queue[0].name,
-      log: log.slice(-log_new),
-      battleground
-    }
+    let result = {}
+    result.floor_info = `${dungeon_name}: Floor ${floor}`
+    if (turn_queue.length) result.current_player = turn_queue[0].name
+    result.log = log.slice(-log_new),
+    result.battleground = battleground
+    return result
   }
 
   this.next = () => {
     while(true) {
       if (!turn_queue.length) advance_timers()
-      if (turn_queue.length)  advance_turns()
-      if (turn_queue.length)  return this.toJSON()
+      if (turn_queue.length)  {
+        let wait_for_player = advance_turns()
+        if (wait_for_player) return this.toJSON()
+      }
     }
   }
 
