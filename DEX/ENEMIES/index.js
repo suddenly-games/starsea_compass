@@ -2,19 +2,19 @@ module.exports = {
   'SLIME': {
     id: 1,
     name: 'Slime',
-    SPD: 0.4,
+    SPD: 0.5,
     HPX: 1,
-    HP: 2,
-    ATK: 2000000,
-    MAG: 2000000,
-    RES: 3,
-    DEF: 3,
+    HP: 3,
+    ATK: 2,
+    MAG: 2,
+    RES: 6,
+    DEF: 5,
     AI: function*(instance, battleground) {
       let source_id = instance.id
       while(true) {
 
         yield { source_id, action: 'START' }
-        yield { source_id, action: 'MENU', message: '+W+', options: ['OK'] }
+        yield { source_id, action: 'DIALOGUE', message: '+W+' }
         yield { source_id, action: 'SKIP' }
 
         let target_index = 0

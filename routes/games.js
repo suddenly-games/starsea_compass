@@ -111,7 +111,7 @@ function Game() {
   //
   // Floor stuff & dungeon 
   let floor = 0
-  let dungeon_name = "World Tree Entrance"
+  let dungeon_name = 'World Tree Entrance'
 
   //
   // Menu Stuff
@@ -128,6 +128,7 @@ function Game() {
 
     const ACTIONS = {
       START(action) {
+        char.GUARD = char.DEF
         if (select('active players').includes(char)) {
           waiting_for_player = true
         }
@@ -159,7 +160,31 @@ function Game() {
         }
         return action
       },
+      BREAK(action) {
+        action.message = `${char.name}'s guard broke!`
+        char.ATB = Math.max(char.ATB - 5000, 0)
+        if (turn_queue.includes(char)) {
+          turn_queue.splice(turn_queue.indexOf(char), 1)
+        }
+        return action
+      },
       DAMAGE(action) {
+        let damage = action.damage
+        if (char.GUARD > 0) {
+          let blocked = Math.min(char.GUARD, action.damage)
+          action.action = 'BLOCK'
+          action.blocked = blocked
+          char.GUARD -= blocked
+          damage -= blocked
+          action.message = `${char.name} blocked ${blocked} damage.`
+          if (char.GUARD <= 0) {
+            next.push({ action: 'BREAK', source_id: char.id })
+            if (damage > 0) {
+              next.push({ action: 'DAMAGE', source_id: char.id, attack: 'PHYSICAL', damage, })
+            }
+          }
+          return action
+        }
         char.HP -= action.damage
         if (char.HP <= 0) {
           next.push({
@@ -167,7 +192,7 @@ function Game() {
             source_id: char.id
           })
         }
-        action.message = `${char.name} took ${action.damage} damage.`
+        action.message = `${char.name} took ${action.damage} ${action.attack.toLowerCase()} damage.`
         return action
       },
       DEATH(action) {
@@ -197,13 +222,16 @@ function Game() {
         instance.id  = action.source_id + ':' + enemy_id
         instance.SPD = char.SPD * (100 + action.level)
         instance.HP = char.HP * (10 + action.level)
-        instance.ATK = char.ATK * (5 + action.level)
-        instance.MAG = char.MAG * (5 + action.level)
-        instance.RES = char.RES * (5 + action.level)
-        instance.DEF = char.DEF * (5 + action.level)
+        instance.ATK = char.ATK * (3 + action.level)
+        instance.MAG = char.MAG * (3 + action.level)
+        instance.RES = char.RES * (3 + action.level)
+        instance.DEF = char.DEF * (3 + action.level)
+        instance.GUARD = instance.DEF
+        instance.MAX_HP = instance.HP
         instance.actions = char.AI(instance, battleground)
         instance.name = char.name
         battleground[action.target_index] = instance
+        action.source_id = instance.id
         action.message = `${instance.name} appeared!`
         return action
       },
@@ -219,13 +247,17 @@ function Game() {
         floor++
         action.message = `Entering Floor ${floor}...`
 
-        let spawn_count = Math.min(floor, 1 + getRandomInt(5) )
+        for(let player of select('all players')) {
+          level_up(player)
+        }
+
+        let spawn_count = Math.min(floor, 2 + getRandomInt(4) )
         
         for(let i = 0; i < spawn_count; ++i) {
           next.push({
             source_id: 'SLIME',
             action: 'SPAWN',
-            level: floor + getRandomInt(6), 
+            level: floor + getRandomInt(3) + getRandomInt(3) + getRandomInt(3), 
             target_index: 10 + i
           })
         }
@@ -262,7 +294,7 @@ function Game() {
     log_new++
 
     for(let action of next) {
-      perform_action(action)
+      waiting_for_player = perform_action(action) ? true : waiting_for_player
     }
 
     return waiting_for_player
@@ -282,13 +314,30 @@ function Game() {
 
   let load_character = (id, level) => {
     let char = select(id)
-    char.SPD = char.SPD * (100 + level)
-    char.HP = char.HP * (10 + level)
-    char.ATK = char.ATK * (5 + level)
-    char.MAG = char.MAG * (5 + level)
-    char.RES = char.RES * (5 + level)
-    char.DEF = char.DEF * (5 + level)
-    return char
+    let instance = {}
+    instance.ATB = 5000
+    instance.id = char.id + ':PLAYER'
+    instance.name = char.name
+    instance.SPD = char.SPD * (100 + level)
+    instance.HP = char.HP * (10 + level)
+    instance.ATK = char.ATK * (3 + level)
+    instance.MAG = char.MAG * (3 + level)
+    instance.RES = char.RES * (3 + level)
+    instance.DEF = char.DEF * (3 + level)
+    instance.GUARD = char.DEF
+    instance.MAX_HP = char.HP
+    return instance
+  }
+
+  let level_up = (instance) => {
+    let char = select(instance.id.split(':')[0])
+    instance.SPD += char.SPD
+    instance.HP += char.HP
+    instance.MAX_HP += char.HP
+    instance.ATK += char.ATK
+    instance.MAG += char.MAG
+    instance.RES += char.RES
+    instance.DEF += char.DEF
   }
 
   battleground[0] = load_character('SHAYA', floor)
