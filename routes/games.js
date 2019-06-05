@@ -1,5 +1,5 @@
 var router = require('express').Router()
-let { ENEMIES, CARDS, CHARACTERS } = require('../DEX')
+let { ENEMIES, CARDS, CHARACTERS, EVENTS } = require('../DEX')
 
 let game
 
@@ -48,9 +48,11 @@ function Game() {
   
   
   let deck = {
-    hand: {
-      
-    },
+    
+  }
+
+  let hand = {
+    
   }
 
   // Target Selection
@@ -90,7 +92,6 @@ function Game() {
   //
   // Turn Queue
   let turn_queue = []
-  let mid_turn = false
 
   let advance_timers = () => {
     for(let char of select('active characters')) {
@@ -111,11 +112,16 @@ function Game() {
   //
   // Floor stuff & dungeon 
   let floor = 0
-  let dungeon_name = 'World Tree Entrance'
-
+  let dungeon = {
+    id: 'WORLD_TREE_ENTRANCE',
+    name: 'World Tree Entrance'
+  }
   //
   // Menu Stuff
   let menu = []
+
+  // Event Stuff
+  let event_queue = []
 
   //
   // Game Actions
@@ -245,21 +251,37 @@ function Game() {
       },
       ADVANCE(action) {
         floor++
+        let events = EVENTS[dungeon.id].filter(e => e.floor == floor)
+        let skip = false
+        if(events) {
+          for(let event of events) {
+            if (!event.completed) {
+              event_queue = event_queue.concat(event.actions)
+              if(event.battle) {
+                skip = true
+              }
+            }
+          }
+        }
         action.message = `Entering Floor ${floor}...`
 
         for(let player of select('all players')) {
           level_up(player)
         }
 
-        let spawn_count = Math.min(floor, 2 + getRandomInt(4) )
-        
-        for(let i = 0; i < spawn_count; ++i) {
-          next.push({
-            source_id: 'SLIME',
-            action: 'SPAWN',
-            level: floor + getRandomInt(3) + getRandomInt(3) + getRandomInt(3), 
-            target_index: 10 + i
-          })
+        if (!skip) {
+
+          let spawn_count = Math.min(floor, 2 + getRandomInt(4) )
+          
+          for(let i = 0; i < spawn_count; ++i) {
+            next.push({
+              source_id: 'SLIME',
+              action: 'SPAWN',
+              level: floor + getRandomInt(3) + getRandomInt(3) + getRandomInt(3), 
+              target_index: 10 + i
+            })
+          }
+
         }
 
         return action
@@ -300,13 +322,7 @@ function Game() {
     return waiting_for_player
 
   }
-  
-  perform_action({
-    action: 'DIALOGUE',
-    source_id: 'SYSTEM',
-    message: 'Hello World!'
-  })
-  
+
   perform_action({
     action: 'ADVANCE',
     source_id: 'PLAYER'
@@ -325,7 +341,7 @@ function Game() {
     instance.RES = char.RES * (3 + level)
     instance.DEF = char.DEF * (3 + level)
     instance.GUARD = char.DEF
-    instance.MAX_HP = char.HP
+    instance.MAX_HP = instance.HP
     return instance
   }
 
@@ -356,9 +372,17 @@ function Game() {
     }
     return waiting_for_player
   }
+  let process_events = () => {
+    while(event_queue.length) {
+      let action = event_queue[0]
+      let wait_for_player = perform_action(action)
+      event_queue.shift()
+      if (wait_for_player) return wait_for_player
+    }
+  }
 
   this.inputAction = (data) => {
-    data.source_id = turn_queue[0].id
+    data.source_id = turn_queue.length ? turn_queue[0].id : 'PLAYER'
     if (menu.length && data.action != 'CHOOSE') {
       perform_action({
         action: 'MENU',
@@ -375,15 +399,21 @@ function Game() {
 
   this.toJSON = () => {
     let result = {}
-    result.floor_info = `${dungeon_name}: Floor ${floor}`
+    result.floor_info = `${dungeon.name}: Floor ${floor}`
     if (turn_queue.length) result.current_player = turn_queue[0].name
     result.log = log.slice(-log_new),
     result.battleground = battleground
     return result
   }
 
+
+
   this.next = () => {
     while(true) {
+      if (event_queue.length)  {
+        let wait_for_player = process_events()
+        if (wait_for_player) return this.toJSON()
+      }
       if (!turn_queue.length) advance_timers()
       if (turn_queue.length)  {
         let wait_for_player = advance_turns()
