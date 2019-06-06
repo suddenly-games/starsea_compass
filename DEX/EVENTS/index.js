@@ -15,15 +15,12 @@ let EVENTS = {
         { source_id: 'SHAYA', action: 'DIALOGUE', message: 'I need something to fight with...' },
         { source_id: 'SHAYA', action: 'DIALOGUE', message: 'Is that... the Celestial Sword Astraea !?' },
         { source_id: 'SYSTEM', action: 'DIALOGUE', message: 'You picked up a stick.' },
-        { source_id: 'SYSTEM', action: 'MENU', message: 'The "Smack" Card was added to your deck.', options: ['OK'], example: {
-          action: 'CHOOSE',
-          option: 'OK'
-        } },
+        { source_id: 'SYSTEM', action: 'LOOT', card_id: 'SMACK' },
         { source_id: 'SHAYA', action: 'DIALOGUE', message: 'I\'m ready for you now, vile creature!' },
         { source_id: 'TUTORIAL_SLIME', action: 'DIALOGUE', message: '+W+?' },
         { source_id: 'SYSTEM', action: 'DIALOGUE', message: 'Try using "Smack" against the Slime.', example: {
           action: 'ACTIVATE',
-          card: 'SMACK',
+          card_id: 'SMACK',
           target_index: 10
         } }
       ]

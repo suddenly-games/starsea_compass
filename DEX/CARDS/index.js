@@ -1,5 +1,6 @@
 module.exports = {
   'SMACK': {
+    id: 'SMACK',
     name: 'Smack',
     element: 'NONE',
     type: 'SPELL',

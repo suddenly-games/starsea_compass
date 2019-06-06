@@ -46,14 +46,10 @@ function Game() {
   ]
 
   
-  
-  let deck = {
-    
-  }
-
-  let hand = {
-    
-  }
+  //
+  // Inventory Stuff
+  let deck = []
+  let hand = []
 
   // Target Selection
   let select = type => {
@@ -133,23 +129,9 @@ function Game() {
     let waiting_for_player = false
 
     const ACTIONS = {
-      START(action) {
-        char.GUARD = char.DEF
-        if (select('active players').includes(char)) {
-          waiting_for_player = true
-        }
-        action.message = `${char.name}'s turn!`
-        return action
-      },
-      SKIP(action) {
-        char.ATB = 7000
-        turn_queue.shift()
-        action.message = `${char.name} did nothing...`
-        return action
-      },
       ACTIVATE(action) {
         let target = battleground[action.target_index]
-        let card = select(action.card)
+        let card = select(action.card_id)
         if (target.id) {
           action.message = `${char.name} used ${card.name} on ${target.name}!`
           char.ATB = 10000 - card.atb_cost
@@ -166,12 +148,71 @@ function Game() {
         }
         return action
       },
+      ADVANCE(action) {
+        floor++
+        let events = EVENTS[dungeon.id].filter(e => e.floor == floor)
+        let skip = false
+        if(events) {
+          for(let event of events) {
+            if (!event.completed) {
+              event_queue = event_queue.concat(event.actions)
+              if(event.battle) {
+                skip = true
+              }
+            }
+          }
+        }
+        action.message = `Entering Floor ${floor}...`
+
+        for(let player of select('all players')) {
+          level_up(player)
+        }
+
+        if (!skip) {
+
+          let spawn_count = Math.min(floor, 2 + getRandomInt(4) )
+          
+          for(let i = 0; i < spawn_count; ++i) {
+            next.push({
+              source_id: 'SLIME',
+              action: 'SPAWN',
+              level: floor + getRandomInt(3) + getRandomInt(3) + getRandomInt(3), 
+              target_index: 10 + i
+            })
+          }
+
+        }
+
+        return action
+      },
       BREAK(action) {
         action.message = `${char.name}'s guard broke!`
         char.ATB = Math.max(char.ATB - 5000, 0)
         if (turn_queue.includes(char)) {
           turn_queue.splice(turn_queue.indexOf(char), 1)
         }
+        return action
+      },
+      CHOOSE(action) {
+        char = select('player')
+        action.source_id = char.id
+        if (menu.includes(action.option)) {
+          action.message = `${char.name} chose ${action.option}.`
+          menu = []
+        }
+        else {
+          action.message = `Invalid choice!`
+          action.options = menu
+          waiting_for_player = true
+        }
+        return action
+      },
+      CLEAR(action){
+        action.message = `${char.name} cleared floor ${floor}!`
+        next.push({
+          source_id: 'PLAYER',
+          action: 'ADVANCE'
+        })
         return action
       },
       DAMAGE(action) {
@@ -220,6 +261,48 @@ function Game() {
         }
         return action
       },
+      DIALOGUE(action) {
+        return action
+      },
+      DRAW(action) {
+        if (deck.length) {
+          let random_index = getRandomInt(deck.length)
+          let card_id = deck[random_index]
+          deck.splice(random_index, 1)
+          let card = select(card_id)
+          hand.push(card_id)
+          action.message = `${ char.name } drew "${ card.name }"`
+        }
+        else {
+          action.source_id = 'SYSTEM'
+          action.message = `We tried to make you draw a card when your deck is empty. BRUH.`
+        }
+        return action
+      },
+      LOOT(action) {
+        action.source_id = 'SYSTEM'
+        let card = select(action.card_id)
+        if (card) {
+          deck.push(card.id)
+          action.message = `"${ card.name }" was added to the deck.`
+        }
+        else {
+          action.message = `We tried to give you a card that doesn't exist. BRUH.`
+        }
+        return action
+      },
+      MENU(action) {
+        action.source_id = 'SYSTEM'
+        waiting_for_player = true
+        menu = action.options
+        return action
+      },
+      SKIP(action) {
+        char.ATB = 7000
+        turn_queue.shift()
+        action.message = `${char.name} did nothing...`
+        return action
+      },
       SPAWN(action) {
         enemy_id++
         let instance = {}
@@ -241,72 +324,23 @@ function Game() {
         action.message = `${instance.name} appeared!`
         return action
       },
-      CLEAR(action){
-        action.message = `${char.name} cleared floor ${floor}!`
-        next.push({
-          source_id: 'PLAYER',
-          action: 'ADVANCE'
-        })
-        return action
-      },
-      ADVANCE(action) {
-        floor++
-        let events = EVENTS[dungeon.id].filter(e => e.floor == floor)
-        let skip = false
-        if(events) {
-          for(let event of events) {
-            if (!event.completed) {
-              event_queue = event_queue.concat(event.actions)
-              if(event.battle) {
-                skip = true
-              }
-            }
-          }
-        }
-        action.message = `Entering Floor ${floor}...`
-
-        for(let player of select('all players')) {
-          level_up(player)
-        }
-
-        if (!skip) {
-
-          let spawn_count = Math.min(floor, 2 + getRandomInt(4) )
-          
-          for(let i = 0; i < spawn_count; ++i) {
+      START(action) {
+        char.GUARD = char.DEF
+        if (select('active players').includes(char)) {
+          let cards_drawn = Math.min(deck.length, 6 - hand.length)
+          console.log(cards_drawn)
+          console.log(log)
+          console.log(deck)
+          console.log(hand)
+          for(let i = 0; i< cards_drawn; ++i) {
             next.push({
-              source_id: 'SLIME',
-              action: 'SPAWN',
-              level: floor + getRandomInt(3) + getRandomInt(3) + getRandomInt(3), 
-              target_index: 10 + i
+              source_id: char.id,
+              action: 'DRAW'
             })
           }
-
-        }
-
-        return action
-      },
-      DIALOGUE(action) {
-        return action
-      },
-      MENU(action) {
-        action.source_id = 'SYSTEM'
-        waiting_for_player = true
-        menu = action.options
-        return action
-      },
-      CHOOSE(action) {
-        char = select('player')
-        action.source_id = char.id
-        if (menu.includes(action.option)) {
-          action.message = `${char.name} chose ${action.option}.`
-          menu = []
-        }
-        else {
-          action.message = `Invalid choice!`
-          action.options = menu
           waiting_for_player = true
         }
+        action.message = `${char.name}'s turn!`
         return action
       },
     }
@@ -392,6 +426,18 @@ function Game() {
       })
       return this.toJSON()
     }
+    if (data.action == 'ACTIVATE' && !hand.includes(data.card_id)) {
+      perform_action({
+        action: 'DIALOGUE',
+        source_id: 'SYSTEM',
+        message: 'That card is not in your hand!'
+      })
+      return this.toJSON()
+    }
+    if (data.action == 'ACTIVATE') {
+      hand.splice(hand.indexOf(data.card_id),1)
+      deck.push(data.card_id)
+    }
     let try_again = perform_action(data)
     if (try_again) return this.toJSON()
     return null
@@ -401,6 +447,8 @@ function Game() {
     let result = {}
     result.floor_info = `${dungeon.name}: Floor ${floor}`
     if (turn_queue.length) result.current_player = turn_queue[0].name
+    result.deck = deck.length
+    result.hand = hand
     result.log = log.slice(-log_new),
     result.battleground = battleground
     return result
