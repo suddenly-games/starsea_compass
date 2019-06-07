@@ -2,6 +2,7 @@ module.exports = {
   'SHAYA': {
     id: 'SHAYA',
     name: 'Shaya',
+    element: 'FIRE',
     SPD: 0.9,
     HPX: 1,
     HP: 5,

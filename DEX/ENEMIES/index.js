@@ -2,6 +2,7 @@ module.exports = {
   'TUTORIAL_SLIME': {
     id: 0,
     name: 'Slime',
+    element: 'NATURE',
     SPD: 0.5,
     HPX: 1,
     HP: 3,
@@ -31,6 +32,7 @@ module.exports = {
   'SLIME': {
     id: 1,
     name: 'Slime',
+    element: 'NATURE',
     SPD: 0.5,
     HPX: 1,
     HP: 3,

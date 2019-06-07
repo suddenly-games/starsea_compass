@@ -19,13 +19,15 @@ let EVENTS = {
         { source_id: 'SHAYA', action: 'DIALOGUE', message: 'Is that... the Celestial Sword Astraea!?' },
         { source_id: 'SYSTEM', action: 'DIALOGUE', message: 'You picked up a stick.' },
         { source_id: 'SYSTEM', action: 'LOOT', card_id: 'SMACK' },
-        { source_id: 'SHAYA', action: 'DIALOGUE', message: 'I\'m ready for you now, foul monster!' },
+        { source_id: 'SHAYA', action: 'DIALOGUE', message: 'I\'m ready for you now, foul creature!' },
         { source_id: 'TUTORIAL_SLIME', action: 'DIALOGUE', message: '+W+?' },
-        { source_id: 'SYSTEM', action: 'DIALOGUE', message: 'Try using "Smack" against the Slime.', example: {
-          action: 'ACTIVATE',
-          card_id: 'SMACK',
-          target_index: 10
-        } }
+        { source_id: 'SYSTEM', action: 'DIALOGUE', message: 'Try using "Smack" against the Slime.', 
+          example: {
+            action: 'ACTIVATE',
+            card_id: 'SMACK',
+            target_index: 10
+          } 
+        }
       ]
     },
     MAGIC_TUTORIAL: {
@@ -50,7 +52,7 @@ let EVENTS = {
         { source_id: 'SHAYA', action: 'DIALOGUE', message: 'W-where did all my cards go!?' },
         { source_id: 'SHAYA', action: 'DIALOGUE', message: 'There\'s only one left...' },
         { source_id: 'SYSTEM', action: 'LOOT', card_id: 'CINDER' },
-        { source_id: 'SYSTEM', action: 'DIALOGUE', message: 'This FIRE spell card costs MP and does MAGICAL damage.' },
+        { source_id: 'SYSTEM', action: 'DIALOGUE', message: 'This FIRE card costs MP and does MAGICAL damage.' },
         { source_id: 'SYSTEM', action: 'DIALOGUE', message: 'Characters regenerate a bit of MP at the beginning of each turn.' },
         { source_id: 'SYSTEM', action: 'DIALOGUE', message: 'MAGICAL damage ignores GUARD but enemies can resist it.' },
         { source_id: 'SYSTEM', action: 'DIALOGUE', message: 'Enemies are also strong or weak against certain elements, like FIRE.' },

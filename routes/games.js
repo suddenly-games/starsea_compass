@@ -48,7 +48,7 @@ function Game() {
   
   //
   // Inventory Stuff
-  let deck = ['CINDER']
+  let deck = []
   let hand = []
 
   // Target Selection
@@ -142,7 +142,11 @@ function Game() {
         if (target.id) {
           action.message = `${char.name} used ${card.name} on ${target.name}!`
           char.ATB = 10000 - card.atb_cost
-          char.MP -= card.mp_cost
+          if (select('active players').includes(char)) {
+            char.MP -= card.mp_cost
+            hand.splice(hand.indexOf(data.card_id),1)
+            deck.push(data.card_id)
+          }
           if (char.ATB < 10000) {
             turn_queue.shift()
           }
@@ -179,12 +183,11 @@ function Game() {
         if (!skip) {
 
           let spawn_count = Math.min(floor, 2 + getRandomInt(4) )
-          
           for(let i = 0; i < spawn_count; ++i) {
             next.push({
               source_id: 'SLIME',
               action: 'SPAWN',
-              level: floor + getRandomInt(3) + getRandomInt(3) + getRandomInt(3), 
+              level: Math.round( 1.3 * floor + 0.2 * floor * Math.random()) + getRandomInt(3) + getRandomInt(3),
               target_index: 10 + i
             })
           }
@@ -235,7 +238,7 @@ function Game() {
           if (char.GUARD <= 0) {
             next.push({ action: 'BREAK', source_id: char.id })
             if (damage > 0) {
-              next.push({ action: 'DAMAGE', source_id: char.id, attack: 'PHYSICAL', damage, })
+              next.push({ action: 'DAMAGE', source_id: char.id, damage, attack: 'PHYSICAL', element: action.element })
             }
           }
           return action
@@ -247,7 +250,7 @@ function Game() {
             source_id: char.id
           })
         }
-        action.message = `${char.name} took ${action.damage} ${action.attack.toLowerCase()} damage.`
+        action.message = `${char.name} took ${action.damage} damage.`
         return action
       },
       DEATH(action) {
@@ -445,8 +448,6 @@ function Game() {
       return this.toJSON()
     }
     if (data.action == 'ACTIVATE') {
-      hand.splice(hand.indexOf(data.card_id),1)
-      deck.push(data.card_id)
     }
     let try_again = perform_action(data)
     if (try_again) return this.toJSON()

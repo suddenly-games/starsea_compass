@@ -11,12 +11,15 @@ module.exports = {
     mp_cost: 0,
     atb_cost: 4000,
     activate(user, target) {
-      let damage = Math.round((0.5 + 0.3 * Math.random() + 0.35) * user.ATK)
+      let base = 1 + 0.35
+      let rand = 0.6 + 0.1 * Math.random() + 0.1 * Math.random() + 0.1 * Math.random() + 0.1 * Math.random()
+      let damage = Math.round( base * rand * user.ATK )
       return {
         action: 'DAMAGE',
-        attack: 'PHYSICAL',
         source_id: target.id,
-        damage
+        damage,
+        attack: 'PHYSICAL',
+        element: 'NONE'
       }
     }
   },
@@ -29,15 +32,23 @@ module.exports = {
     range: 'RANGED',
     target: 'ENEMY SINGLE',
     power: 40,
-    mp_cost: 4,
+    mp_cost: 3,
     atb_cost: 5000,
     activate(user, target) {
-      let damage = Math.max(Math.round((40 * (1.15 - 0.3 * Math.random())) * user.MAG / target.RES),0)
+      let base = 1 + 0.4 * 1.5
+      let multiplier = 1.2
+      let effectiveness = 1.5
+      let rand1 = 1 + 0.1 * Math.random() + 0.1 * Math.random()
+      let rand2 = 1 - 0.1 * Math.random() - 0.1 * Math.random()
+      let damage = ( base * rand1 * user.MAG - rand2 * target.RES ) * multiplier * effectiveness
+      damage = Math.round(damage)
+      damage = Math.max(damage, 0)
       return {
         action: 'DAMAGE',
-        attack: 'MAGICAL',
         source_id: target.id,
-        damage
+        damage,
+        attack: 'MAGICAL',
+        element: 'FIRE'
       }
     }
   }
