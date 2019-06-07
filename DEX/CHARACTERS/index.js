@@ -7,7 +7,7 @@ module.exports = {
     HPX: 1,
     HP: 5,
     MP: 0.4,
-    MPX: 3,
+    MPX: 2,
     ATK: 7,
     MAG: 6,
     RES: 4,

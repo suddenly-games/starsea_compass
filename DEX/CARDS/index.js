@@ -1,3 +1,5 @@
+let { randn_bm } = require('../../util')
+
 module.exports = {
   'SMACK': {
     id: 'SMACK',
@@ -12,7 +14,7 @@ module.exports = {
     atb_cost: 4000,
     activate(user, target) {
       let base = 1 + 0.35
-      let rand = 0.6 + 0.1 * Math.random() + 0.1 * Math.random() + 0.1 * Math.random() + 0.1 * Math.random()
+      let rand = 0.6 + 0.4 * randn_bm()
       let damage = Math.round( base * rand * user.ATK )
       return {
         action: 'DAMAGE',
@@ -33,13 +35,15 @@ module.exports = {
     target: 'ENEMY SINGLE',
     power: 40,
     mp_cost: 3,
-    atb_cost: 5000,
+    atb_cost: 4000,
     activate(user, target) {
-      let base = 1 + 0.4 * 1.5
-      let multiplier = 1.2
-      let effectiveness = 1.5
-      let rand1 = 1 + 0.1 * Math.random() + 0.1 * Math.random()
-      let rand2 = 1 - 0.1 * Math.random() - 0.1 * Math.random()
+      let stab = user.element == 'FIRE' ? 1.5 : 1
+      let power = 40 / 100
+      let base = 1 + power * stab
+      let multiplier = 1.2 // Fairy Ring - Fire (Shaya's Leader Skill)
+      let effectiveness = 1.5 // Super Effective against Nature
+      let rand1 = 1 + 0.2 * randn_bm()
+      let rand2 = 1 - 0.2 * randn_bm()
       let damage = ( base * rand1 * user.MAG - rand2 * target.RES ) * multiplier * effectiveness
       damage = Math.round(damage)
       damage = Math.max(damage, 0)

@@ -3,10 +3,7 @@ let { ENEMIES, CARDS, CHARACTERS, EVENTS } = require('../DEX')
 
 let game
 
-let clone = obj => JSON.parse(JSON.stringify(obj))
-function getRandomInt(max) {
-  return Math.floor(Math.random() * Math.floor(max));
-}
+let { randInt, randn_bm, clone } = require('../util')
 
 router.post('/', (req, res, next) => {
 
@@ -182,12 +179,12 @@ function Game() {
 
         if (!skip) {
 
-          let spawn_count = Math.min(floor, 2 + getRandomInt(4) )
+          let spawn_count = Math.min(floor, 2 + randInt(4) )
           for(let i = 0; i < spawn_count; ++i) {
             next.push({
               source_id: 'SLIME',
               action: 'SPAWN',
-              level: Math.round( 1.3 * floor + 0.2 * floor * Math.random()) + getRandomInt(3) + getRandomInt(3),
+              level: Math.round(1.2 * floor + 0.3 * floor * randn_bm() + 4 * randn_bm()),
               target_index: 10 + i
             })
           }
@@ -277,7 +274,7 @@ function Game() {
       },
       DRAW(action) {
         if (deck.length) {
-          let random_index = getRandomInt(deck.length)
+          let random_index = randInt(deck.length)
           let card_id = deck[random_index]
           deck.splice(random_index, 1)
           let card = select(card_id)
@@ -320,16 +317,17 @@ function Game() {
         instance.ATB = 5000
         instance.level = action.level
         instance.id  = action.source_id + ':' + enemy_id
-        instance.SPD = char.SPD * (100 + action.level)
-        instance.HP = char.HP * (10 + action.level)
-        instance.ATK = char.ATK * (3 + action.level)
-        instance.MAG = char.MAG * (3 + action.level)
-        instance.RES = char.RES * (3 + action.level)
-        instance.DEF = char.DEF * (3 + action.level)
+        instance.name = char.name
+        instance.element = char.element
+        instance.SPD = char.SPD * (100 + action.level) + 0.1 * randInt(action.level)
+        instance.HP = char.HP * (10 + action.level)  + randInt(action.level)
+        instance.ATK = char.ATK * (3 + action.level) + randInt(action.level)
+        instance.MAG = char.MAG * (3 + action.level) + randInt(action.level)
+        instance.RES = char.RES * (3 + action.level) + randInt(action.level)
+        instance.DEF = char.DEF * (3 + action.level) + randInt(action.level)
         instance.GUARD = instance.DEF
         instance.MAX_HP = instance.HP
         instance.actions = char.AI(instance, battleground)
-        instance.name = char.name
         battleground[action.target_index] = instance
         action.source_id = instance.id
         action.message = `${instance.name} appeared!`
@@ -376,6 +374,7 @@ function Game() {
     instance.ATB = 5000
     instance.id = char.id + ':PLAYER'
     instance.name = char.name
+    instance.element = char.element
     instance.SPD = char.SPD * (100 + level)
     instance.HP = char.HP * (10 + level)
     instance.MP = char.MP * (10 + level)
