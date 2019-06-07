@@ -48,7 +48,7 @@ function Game() {
   
   //
   // Inventory Stuff
-  let deck = []
+  let deck = ['CINDER']
   let hand = []
 
   // Target Selection
@@ -132,9 +132,17 @@ function Game() {
       ACTIVATE(action) {
         let target = battleground[action.target_index]
         let card = select(action.card_id)
+
+        if (card.mp_cost > char.MP) {
+          action.message = `Not enough MP to do that!`
+          waiting_for_player = true
+          return action
+        }
+
         if (target.id) {
           action.message = `${char.name} used ${card.name} on ${target.name}!`
           char.ATB = 10000 - card.atb_cost
+          char.MP -= card.mp_cost
           if (char.ATB < 10000) {
             turn_queue.shift()
           }
@@ -150,7 +158,7 @@ function Game() {
       },
       ADVANCE(action) {
         floor++
-        let events = EVENTS[dungeon.id].filter(e => e.floor == floor)
+        let events = Object.values(EVENTS[dungeon.id]).filter(e => e.floor == floor && e.on == 'ADVANCE')
         let skip = false
         if(events) {
           for(let event of events) {
@@ -217,7 +225,7 @@ function Game() {
       },
       DAMAGE(action) {
         let damage = action.damage
-        if (char.GUARD > 0) {
+        if (action.attack == 'PHYSICAL' && char.GUARD > 0) {
           let blocked = Math.min(char.GUARD, action.damage)
           action.action = 'BLOCK'
           action.blocked = blocked
@@ -327,11 +335,8 @@ function Game() {
       START(action) {
         char.GUARD = char.DEF
         if (select('active players').includes(char)) {
+          char.MP = Math.min(char.MP + char.MPX, char.MAX_MP)
           let cards_drawn = Math.min(deck.length, 6 - hand.length)
-          console.log(cards_drawn)
-          console.log(log)
-          console.log(deck)
-          console.log(hand)
           for(let i = 0; i< cards_drawn; ++i) {
             next.push({
               source_id: char.id,
@@ -370,12 +375,15 @@ function Game() {
     instance.name = char.name
     instance.SPD = char.SPD * (100 + level)
     instance.HP = char.HP * (10 + level)
+    instance.MP = char.MP * (10 + level)
+    instance.MPX = char.MPX
     instance.ATK = char.ATK * (3 + level)
     instance.MAG = char.MAG * (3 + level)
     instance.RES = char.RES * (3 + level)
     instance.DEF = char.DEF * (3 + level)
     instance.GUARD = char.DEF
     instance.MAX_HP = instance.HP
+    instance.MAX_MP = instance.MP
     return instance
   }
 
@@ -384,6 +392,8 @@ function Game() {
     instance.SPD += char.SPD
     instance.HP += char.HP
     instance.MAX_HP += char.HP
+    instance.MP += char.MP
+    instance.MAX_MP += char.MP
     instance.ATK += char.ATK
     instance.MAG += char.MAG
     instance.RES += char.RES

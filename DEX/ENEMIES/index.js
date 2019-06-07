@@ -11,7 +11,7 @@ module.exports = {
     DEF: 5,
     AI: function*(instance, battleground) {
       let source_id = instance.id
-      yield { source_id: 'SYSTEM', action: 'DIALOGUE', message: 'Cards return to your deck when used.' }
+      yield { source_id: 'SYSTEM', action: 'DIALOGUE', message: 'Spell cards return to your deck when used.' }
       yield { source_id: 'SYSTEM', action: 'DIALOGUE', message: 'Your hand refills up to 6 cards each turn.' }
       yield { source_id, action: 'START' }
       yield { source_id: 'SHAYA', action: 'DIALOGUE', message: 'This thing is kind of tough...' }
@@ -43,7 +43,6 @@ module.exports = {
       while(true) {
 
         yield { source_id, action: 'START' }
-        yield { source_id, action: 'DIALOGUE', message: '+W+' }
         yield { source_id, action: 'SKIP' }
 
         let target_index = 0
