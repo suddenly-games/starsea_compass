@@ -349,6 +349,18 @@ function Game() {
         action.message = `${char.name}'s turn!`
         return action
       },
+      SWITCH(action) {
+        let a = action.a_index
+        let b = action.b_index
+
+        let temp = battleground[a]
+        battleground[a] = battleground[b]
+        battleground[b] = temp
+        
+        action.message = `${battleground[a].name} switched with ${battleground[b].name}.`
+
+        return action
+      }
     }
 
     let result = ACTIONS[key](data)
