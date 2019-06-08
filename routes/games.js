@@ -446,8 +446,6 @@ function Game() {
       })
       return this.toJSON()
     }
-    if (data.action == 'ACTIVATE') {
-    }
     let try_again = perform_action(data)
     if (try_again) return this.toJSON()
     return null
