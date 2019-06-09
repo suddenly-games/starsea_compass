@@ -350,15 +350,55 @@ function Game() {
         return action
       },
       SWITCH(action) {
+
         let a = action.a_index
         let b = action.b_index
+
+        char.ATB = 7000
+        turn_queue.shift()
 
         let temp = battleground[a]
         battleground[a] = battleground[b]
         battleground[b] = temp
-        
+
         action.message = `${battleground[a].name} switched with ${battleground[b].name}.`
 
+        if ((b % 10) > 4 && battleground[b].id) {
+          battleground[b].ATB = 0
+          if (turn_queue.includes(battleground[b])) {
+            turn_queue.splice(turn_queue.indexOf(battleground[b]), 1)
+          }
+        }
+
+        if ((a % 10) > 4 && battleground[a].id) {
+          battleground[a].ATB = 0
+          if (turn_queue.includes(battleground[a])) {
+            turn_queue.splice(turn_queue.indexOf(battleground[a]), 1)
+          }
+        }
+
+        if (!battleground[a].id) {
+          action.message = `${battleground[b].name} switched to position ${b}.`
+          if ((a % 10) > 4) {
+            battleground[b].ATB = 7000
+            action.message = `${battleground[b].name} switched in.`
+          }
+          if ((b % 10) > 4) {
+            action.message = `${battleground[b].name} switched out.`
+          }
+        }
+
+        if (!battleground[b].id) {
+          action.message = `${battleground[a].name} switched to position ${a}.`
+          if ((b % 10) > 4) {
+            battleground[a].ATB = 7000
+            action.message = `${battleground[a].name} switched in.`
+          }
+          if ((a % 10) > 4) {
+            action.message = `${battleground[a].name} switched out.`
+          }
+        }
+        
         return action
       }
     }
@@ -415,6 +455,7 @@ function Game() {
   }
 
   battleground[0] = load_character('SHAYA', floor)
+  battleground[1] = load_character('DUMMY', floor)
 
   let advance_turns = () => {
     let waiting_for_player = false
@@ -441,6 +482,7 @@ function Game() {
 
   this.inputAction = (data) => {
     data.source_id = turn_queue.length ? turn_queue[0].id : 'PLAYER'
+
     if (menu.length && data.action != 'CHOOSE') {
       perform_action({
         action: 'MENU',
@@ -450,6 +492,7 @@ function Game() {
       })
       return this.toJSON()
     }
+
     if (data.action == 'ACTIVATE' && !hand.includes(data.card_id)) {
       perform_action({
         action: 'DIALOGUE',
@@ -457,6 +500,58 @@ function Game() {
         message: 'That card is not in your hand!'
       })
       return this.toJSON()
+    }
+
+    if (data.action == 'SWITCH') {
+    
+      let a = data.a_index
+      let b = data.b_index
+  
+      if ((a > 4 || b > 4) && select('all players').length < 2) {
+        perform_action({
+          action: 'DIALOGUE',
+          source_id: 'SYSTEM',
+          message: `You can't switch out your last party member!`
+        })
+        return this.toJSON()
+      }
+  
+      if (a == b) {
+        perform_action({
+          action: 'DIALOGUE',
+          source_id: 'SYSTEM',
+          message: `You must specify two different positions!`
+        })
+        return this.toJSON()
+      }
+  
+      if (a > 9 || b > 9) {
+        perform_action({
+          action: 'DIALOGUE',
+          source_id: 'SYSTEM',
+          message: `You can't switch with an enemy position!`
+        })
+        return this.toJSON()
+      }
+  
+      if (a > 4 && b > 4) {
+        perform_action({
+          action: 'DIALOGUE',
+          source_id: 'SYSTEM',
+          message: `Both characters are in the reserve!`
+        })
+        return this.toJSON()
+      }
+  
+      if (!battleground[a].id && !battleground[b].id) {
+        perform_action({
+          action: 'DIALOGUE',
+          source_id: 'SYSTEM',
+          message: `Both positions are empty!`
+        })
+        return this.toJSON()
+      }
+
     }
     let try_again = perform_action(data)
     if (try_again) return this.toJSON()
