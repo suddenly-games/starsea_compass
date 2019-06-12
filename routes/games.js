@@ -96,7 +96,11 @@ function Game() {
     for(let char of select('reserve players')) {
       char.ATB += char.SPD
       if (char.ATB >= 10000) {
-        perform_action({ source_id: char.id, action: 'RECOVER', message: `${char.name} recovered up to ${char.HPX} HP and up to ${char.HPX} MP` })
+        let HP_recovered = Math.min(char.MAX_HP, char.HP + char.HPX) - char.HP
+        let MP_recovered = Math.min(char.MAX_MP, char.MP + char.MPX) - char.MP
+        console.log(`mp recovered: ${MP_recovered}`)
+        perform_action({ source_id: char.id, action: 'RECOVER', HP: HP_recovered, MP: MP_recovered,
+         message: `${char.name} recovered ${HP_recovered} HP and ${MP_recovered} MP` })
         char.ATB = 0
       }
     }
@@ -313,8 +317,8 @@ function Game() {
         return action
       },
       RECOVER(action) {
-        char.HP = Math.min(char.MAX_HP, char.HP + char.HPX)
-        char.MP = Math.min(char.MAX_MP, char.MP + char.MPX)
+        char.HP += data.HP
+        char.MP += data.MP
         return action
       },
       SKIP(action) {
