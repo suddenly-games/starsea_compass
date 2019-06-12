@@ -87,20 +87,33 @@ function Game() {
   let turn_queue = []
 
   let advance_timers = () => {
-    for(let char of select('active characters')) {
+    for(let char of select('all characters')) {
       char.ATB += char.SPD
+    }
+
+    for(let char of select('active characters')) {
       if (char.ATB >= 10000) {
         turn_queue.push(char)
       }
     }
+
     for(let char of select('reserve players')) {
-      char.ATB += char.SPD
       if (char.ATB >= 10000) {
-        let HP_recovered = Math.min(char.MAX_HP, char.HP + char.HPX) - char.HP
+        let HP_recovered = Math.min(char.MAX_HP, char.HP + char.MAX_HP * char.HPX) - char.HP
         let MP_recovered = Math.min(char.MAX_MP, char.MP + char.MPX) - char.MP
-        console.log(`mp recovered: ${MP_recovered}`)
-        perform_action({ source_id: char.id, action: 'RECOVER', HP: HP_recovered, MP: MP_recovered,
-         message: `${char.name} recovered ${HP_recovered} HP and ${MP_recovered} MP` })
+        let action = {
+          source_id: char.id, 
+          action: 'RECOVER'
+        }
+        if (HP_recovered) {
+          action.HP = HP_recovered
+        }
+        if (MP_recovered) {
+          action.MP = MP_recovered
+        }
+        if (action.HP || action.MP) {
+          perform_action(action)
+        }
         char.ATB = 0
       }
     }
@@ -317,8 +330,9 @@ function Game() {
         return action
       },
       RECOVER(action) {
-        char.HP += data.HP
-        char.MP += data.MP
+        char.HP += data.HP||0
+        char.MP += data.MP||0
+        action.message = `${char.name} recovered ${action.HP ? action.HP + ' HP' :''}${action.HP && action.MP ? ' and ':''}${action.MP ? action.MP + ' MP' :''}.`   
         return action
       },
       SKIP(action) {
@@ -370,7 +384,7 @@ function Game() {
         let a = action.a_index
         let b = action.b_index
 
-        char.ATB = 7000
+        char.ATB = 7500
         turn_queue.shift()
 
         let temp = battleground[a]
@@ -380,14 +394,12 @@ function Game() {
         action.message = `${battleground[a].name} switched with ${battleground[b].name}.`
 
         if ((b % 10) > 4 && battleground[b].id) {
-          battleground[b].ATB = 0
           if (turn_queue.includes(battleground[b])) {
             turn_queue.splice(turn_queue.indexOf(battleground[b]), 1)
           }
         }
 
         if ((a % 10) > 4 && battleground[a].id) {
-          battleground[a].ATB = 0
           if (turn_queue.includes(battleground[a])) {
             turn_queue.splice(turn_queue.indexOf(battleground[a]), 1)
           }
@@ -396,7 +408,7 @@ function Game() {
         if (!battleground[a].id) {
           action.message = `${battleground[b].name} switched to position ${b}.`
           if ((a % 10) > 4) {
-            battleground[b].ATB = 7000
+            battleground[b].ATB = 7500
             action.message = `${battleground[b].name} switched in.`
           }
           if ((b % 10) > 4) {
@@ -407,7 +419,7 @@ function Game() {
         if (!battleground[b].id) {
           action.message = `${battleground[a].name} switched to position ${a}.`
           if ((b % 10) > 4) {
-            battleground[a].ATB = 7000
+            battleground[a].ATB = 7500
             action.message = `${battleground[a].name} switched in.`
           }
           if ((a % 10) > 4) {

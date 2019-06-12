@@ -11,7 +11,7 @@ module.exports = {
     target: 'ENEMY SINGLE',
     power: 35,
     mp_cost: 0,
-    atb_cost: 4000,
+    atb_cost: 3000,
     activate(user, target) {
       let base = 1 + 0.35
       let rand = 0.6 + 0.4 * randn_bm()
