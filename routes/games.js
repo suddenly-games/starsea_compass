@@ -93,6 +93,13 @@ function Game() {
         turn_queue.push(char)
       }
     }
+    for(let char of select('reserve players')) {
+      char.ATB += char.SPD
+      if (char.ATB >= 10000) {
+        perform_action({ source_id: char.id, action: 'RECOVER', message: `${char.name} recovered up to ${char.HPX} HP and up to ${char.HPX} MP` })
+        char.ATB = 0
+      }
+    }
     turn_queue.sort((a,b) => {
       return b.ATB - a.ATB || b.SPD - a.SPD
     })
@@ -305,6 +312,11 @@ function Game() {
         menu = action.options
         return action
       },
+      RECOVER(action) {
+        char.HP = Math.min(char.MAX_HP, char.HP + char.HPX)
+        char.MP = Math.min(char.MAX_MP, char.MP + char.MPX)
+        return action
+      },
       SKIP(action) {
         char.ATB = 7000
         turn_queue.shift()
@@ -430,6 +442,7 @@ function Game() {
     instance.SPD = char.SPD * (100 + level)
     instance.HP = char.HP * (10 + level)
     instance.MP = char.MP * (10 + level)
+    instance.HPX = char.HPX
     instance.MPX = char.MPX
     instance.ATK = char.ATK * (3 + level)
     instance.MAG = char.MAG * (3 + level)
@@ -471,6 +484,7 @@ function Game() {
     }
     return waiting_for_player
   }
+
   let process_events = () => {
     while(event_queue.length) {
       let action = event_queue[0]
