@@ -133,10 +133,36 @@ function Game() {
     id: 'WORLD_TREE_ENTRANCE',
     name: 'World Tree Entrance'
   }
+
   //
   // Menu Stuff
-  let menu = []
 
+  let main_menu = {
+    source_id: 'SYSTEM',
+    action: 'MENU',
+    message: 'Prepare for your next adventure:',
+    options: {}
+  }
+
+  let dungeon_select = {
+    source_id: 'SYSTEM',
+    action: 'MENU',
+    message: 'Select a Dungeon:',
+    options: {
+      'World Tree Entrance': [{
+        action: 'ADVANCE',
+        source_id: 'PLAYER'
+      }],
+      'Back': main_menu
+    }
+  }
+
+  main_menu.options['Dungeon Select'] = [dungeon_select]
+
+  
+  let menu = main_menu
+
+  //
   // Event Stuff
   let event_queue = []
 
@@ -228,13 +254,14 @@ function Game() {
       CHOOSE(action) {
         char = select('player')
         action.source_id = char.id
-        if (menu.includes(action.option)) {
+        if (menu && action.option in menu) {
           action.message = `${char.name} chose ${action.option}.`
-          menu = []
+          next = next.concat(menu[action.option])
+          menu = null
         }
         else {
           action.message = `Invalid choice!`
-          action.options = menu
+          if (menu) action.options = Object.keys(menu)
           waiting_for_player = true
         }
         return action
@@ -288,7 +315,7 @@ function Game() {
             action: 'MENU',
             source_id: 'SYSTEM',
             message: 'GAME OVER!',
-            options: ['Try Again']
+            options: {}
           })
         }
         return action
@@ -324,10 +351,15 @@ function Game() {
         return action
       },
       MENU(action) {
-        action.source_id = 'SYSTEM'
-        waiting_for_player = true
         menu = action.options
-        return action
+        waiting_for_player = true
+        let formatted_action = {
+          action: 'MENU',
+          source_id: 'SYSTEM',
+          message: action.message,
+          options: Object.keys(action.options)
+        }
+        return formatted_action
       },
       RECOVER(action) {
         char.HP += data.HP||0
@@ -443,11 +475,6 @@ function Game() {
 
   }
 
-  perform_action({
-    action: 'ADVANCE',
-    source_id: 'PLAYER'
-  })
-
   let load_character = (id, level) => {
     let char = select(id)
     let instance = {}
@@ -513,7 +540,7 @@ function Game() {
   this.inputAction = (data) => {
     data.source_id = turn_queue.length ? turn_queue[0].id : 'PLAYER'
 
-    if (menu.length && data.action != 'CHOOSE') {
+    if (menu && data.action != 'CHOOSE') {
       perform_action({
         action: 'MENU',
         source_id: 'SYSTEM',
@@ -602,6 +629,10 @@ function Game() {
 
 
   this.next = () => {
+    if (menu) {
+      perform_action(menu)
+      return this.toJSON()
+    }
     while(true) {
       if (event_queue.length)  {
         let wait_for_player = process_events()
