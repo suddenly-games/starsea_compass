@@ -11,6 +11,18 @@ function Game() {
   this.renewLog = () => {
     log_new = 0
   }
+
+  //
+  // Game collection
+  let cards_collected = { //temporarily start with a small collection of fake cards, for testing
+    "FIREBALL" : 3,
+    "EARTHBALL" : 1,
+    "ICEBALL" : 1,
+    "LIGHTNINGBALL" : 1,
+    "AIRBALL" : 2,
+    "SMACK" : 1,
+  }
+
   //
   // Battleground
   let battleground = [
@@ -338,6 +350,24 @@ function Game() {
         }
         return formatted_action
       },
+      MOVESET_CHANGE(action) {
+        let char_instance = select(action.character_id + ':PLAYER')
+        let current_move = char_instance.moveset[action.move_slot_id]
+        let new_move = action.move
+        // how much validation do I put here, if any?... for now there isn't any
+        // check - can only slot into 0-3, 
+        // can't replace same move?, 
+        // are you allowed to have 2 of same move in diff slots?
+        char_instance.moveset[action.move_slot_id] = new_move
+        console.log(current_move)
+        console.log(!current_move)
+        if (!current_move) {
+          action.message = `${new_move} was added to ${char_instance.name}'s moveset in slot ${action.move_slot_id}`
+        } else {
+          action.message = `${new_move} replaced ${current_move} in ${char_instance.name}'s moveset in slot ${action.move_slot_id}`
+        }
+        return action
+      },
       RECOVER(action) {
         char.HP += data.HP||0
         char.MP += data.MP||0
@@ -503,6 +533,7 @@ function Game() {
     instance.GUARD = instance.DEF
     instance.MAX_HP = instance.HP
     instance.MAX_MP = instance.MP
+    instance.moveset = [null,null,null,null]
     return instance
   }
 

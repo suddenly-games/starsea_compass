@@ -16,6 +16,17 @@ let main_menu = {
       },
       options: Object.keys(CHARACTERS)
     },
+    'MOVESET_CHANGE': {
+      source_id: 'SYSTEM',
+      action: 'DIALOGUE',
+      message: 'Use this action to change a character\'s moveset.',
+      example: {
+        action: 'MOVESET_CHANGE',
+        move_slot_id: '0',
+        move: 'SMACK'
+      },
+      options: 'I don\'t know what options I should be using here'
+    },
     'ENTER': {
       source_id: 'SYSTEM',
       action: 'DIALOGUE',
